@@ -15,6 +15,11 @@ require "tmpdir"
 # NOTE: THIS WILL LEAK ENVIRONMENT AND TOKENS!!!!!!!
 DEBUG = false
 
+ENV["GIT_AUTHOR_NAME"] = "Jovian Experiments"
+ENV["GIT_AUTHOR_EMAIL"] = "<jovian-experiments@>"
+ENV["GIT_COMMITTER_NAME"] = ENV["GIT_AUTHOR_NAME"]
+ENV["GIT_COMMITTER_EMAIL"] = ENV["GIT_AUTHOR_EMAIL"]
+
 missing = [
   "TARGET_TOKEN",
   "SOURCE_APP_ID",
