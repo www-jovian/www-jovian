@@ -12,16 +12,35 @@ require_relative "lib"
 require "fileutils"
 require "tmpdir"
 
+# NOTE: THIS WILL LEAK ENVIRONMENT AND TOKENS!!!!!!!
 DEBUG = false
 
-$target_token = ENV["TARGET_TOKEN"]
-$source_token = ENV["SOURCE_TOKEN"]
-$target = GH.new("www-jovian", $target_token)
-$source = GH.new("Jovian-Experiments", $source_token)
+missing = [
+  "TARGET_TOKEN",
+  "SOURCE_APP_ID",
+  "SOURCE_PRIVATE_KEY",
+].select do |var|
+  !ENV[var]
+end
+
+if missing.length > 0 then
+  $stderr.puts "ERROR: Missing secrets from ENV:"
+  missing.each do |var|
+    $stderr.puts "  - #{var}"
+  end
+  exit 1
+end
+
+$target = GH.new("www-jovian", ENV["TARGET_TOKEN"])
+$source = GH.initialize_for_app_secret("Jovian-Experiments", ENV["SOURCE_APP_ID"], ENV["SOURCE_PRIVATE_KEY"])
 $source_repo = "Jovian-NixOS"
 
 def get_PRs_artifacts()
   code, pulls = $source.get_pulls(repo: $source_repo, query: {state: "open", per_page: 100, sort: "updated", direction: "desc"})
+  if code < 200 || code >= 300 then
+    raise "Unexpected response #{code}, #{pulls.inspect}"
+  end
+
   pulls.each do |pull|
     sha = pull["head"]["sha"]
 

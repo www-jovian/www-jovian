@@ -1,5 +1,6 @@
 require "json"
 require "shellwords"
+require "jwt"
 
 class GH
   DOMAIN = "https://api.github.com"
@@ -9,6 +10,35 @@ class GH
   def initialize(owner, token)
     @owner = owner
     @token = token
+  end
+
+  def self.initialize_for_app_secret(owner, app_id, app_secret)
+    self.new(owner, nil).tap do |instance|
+      instance.instance_exec do
+        private_key = OpenSSL::PKey::RSA.new(app_secret)
+        payload = {
+          # issued at time, 60 seconds in the past to allow for clock drift
+          iat: Time.now.to_i - 60,
+          # JWT expiration time (10 minute maximum)
+          exp: Time.now.to_i + (10 * 60),
+          # GitHub App's identifier
+          iss: app_id
+        }
+        jwt = JWT.encode(payload, private_key, "RS256")
+        @token = jwt
+        code, response = get_app_installations()
+        if code < 200 || code >= 300 then
+          raise "Unexpected response #{code}, #{response.inspect}"
+        end
+
+        code, response = create_app_access_token(installation_id: response.first["id"])
+        if code < 200 || code >= 300 then
+          raise "Unexpected response #{code}, #{response.inspect}"
+        end
+
+        @token = response["token"]
+      end
+    end
   end
 
   def gh(path, args)
@@ -37,11 +67,10 @@ class GH
     ])
   end
 
-  def post(path, data)
-    gh(path, [
-      "--request", "POST",
-      "--data", data,
-    ])
+  def post(path, data = nil)
+    params = [ "--request", "POST" ]
+    params.concat(["--data", data]) if data
+    gh(path, params)
   end
 
   def get_repo(name:)
@@ -100,5 +129,13 @@ class GH
     post("repos/#{@owner}/#{repo}/issues/comments/#{comment_id}", {
       body: body,
     }.to_json)
+  end
+
+  def get_app_installations()
+    get("app/installations")
+  end
+
+  def create_app_access_token(installation_id:)
+    post("app/installations/#{installation_id}/access_tokens")
   end
 end
