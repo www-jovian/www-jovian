@@ -4,7 +4,7 @@
 #  - R/W contents (to git push)
 #  - R/W admin    (to create/remove repos)
 #
-# Scopes needed on source repo
+# Scopes needed on source repos by app
 #  - R actions         (to access artifacts)
 #  - R/W pull requests (to make comments)
 
